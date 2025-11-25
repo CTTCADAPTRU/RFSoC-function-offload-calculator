@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>RFSoC Offloading Simulator – GitHub Pages Ready</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+body { padding: 1.5rem; background:#f7f9fc; font-family: Arial, sans-serif;}
+.card { box-shadow: 0 6px 18px rgba(15,23,42,0.06); }
+.param-label { font-weight:600; font-size:0.95rem; }
+.chart-container { position: relative; height: 300px; margin-bottom: 1rem; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1 class="mb-3">RFSoC Offloading Simulator</h1>
+  <p class="text-muted">Configure power, workload patterns, and pricing to analyze offloading benefits.</p>
+
+  <div class="row g-3">
+    <div class="col-lg-5">
+      <div class="card p-3 mb-3">
+        <h5>Parameters</h5>
+        <div class="mb-2">
+          <label class="param-label">P_PL_static (W)</label>
+          <input id="p_pl_static" class="form-control" type="number" step="0.1" value="8">
+        </div>
+        <div class="mb-2">
+          <label class="param-label">P_PL_fft_active (W)</label>
+          <input id="p_pl_fft" class="form-control" type="number" step="0.1" value="6">
+        </div>
+        <div class="mb-2">
+          <label class="param-label">P_PS_static (W)</label>
+          <input id="p_ps_static" class="form-control" type="number" step="0.1" value="2">
+        </div>
+        <div class="mb-2">
+          <label class="param-label">P_PS_fft_active (W)</label>
+          <input id="p_ps_fft" class="form-control" type="number" step="0.1" value="3">
+        </div>
+        <div class="row g-2">
+          <div class="col-6"><label class="param-label">H_high (h/day)</label><input id="h_high" class="form-control" type="number" value="6"></div>
+          <div class="col-6"><label class="param-label">H_low (h/day)</label><input id="h_low" class="form-control" type="number" value="18"></div>
+        </div>
+        <div class="row g-2 mt-2">
+          <div class="col-6"><label class="param-label">E_sw (J)</label><input id="e_sw" class="form-control" type="number" value="2000"></div>
+          <div class="col-6"><label class="param-label">n_sw/day</label><input id="n_sw" class="form-control" type="number" value="1"></div>
+        </div>
+        <div class="mb-2 mt-2">
+          <label class="param-label">Electricity price (€/kWh)</label>
+          <input id="c_elec" class="form-control" type="number" step="0.001" value="0.25">
+        </div>
+        <div class="row g-2">
+          <div class="col-6"><label class="param-label">Grid CO₂ kg/kWh</label><input id="i_grid" class="form-control" type="number" step="0.01" value="0.30"></div>
+          <div class="col-6"><label class="param-label">Lifetime (yrs)</label><input id="t_life" class="form-control" type="number" value="10"></div>
+        </div>
+        <div class="mb-2 mt-2">
+          <label class="param-label">Fleet size</label><input id="fleet_size" class="form-control" type="number" value="1000">
+        </div>
+      </div>
+
+      <div class="card p-3 mb-3">
+        <h5>Scenario & Inputs</h5>
+        <div class="mb-2"><label class="param-label">Scenario</label>
+          <select id="scenario" class="form-select">
+            <option value="base">Base</option>
+            <option value="urban">Urban</option>
+            <option value="tourist">Tourist</option>
+            <option value="industrial">Industrial</option>
+          </select></div>
+        <div class="mb-2"><label class="param-label">Season multipliers (W,S,M,A)</label><input id="season_multipliers" class="form-control" value="1.0,1.0,1.2,0.9"></div>
+        <div class="mb-2"><label class="param-label">Upload price CSV (date,price)</label><input id="price_csv" type="file" class="form-control" accept=".csv"></div>
+        <div class="mb-2"><label class="param-label">Simulation years</label><input id="sim_years" class="form-control" type="number" value="10"></div>
+        <div class="d-grid mt-2">
+          <button id="runSim" class="btn btn-primary">Run Simulation</button>
+        </div>
+      </div>
+
+      <div class="card p-3 mb-3">
+        <h5>Export</h5>
+        <div class="d-grid gap-2">
+          <button id="exportCSV" class="btn btn-outline-primary">Export CSV</button>
+          <button id="exportJSON" class="btn btn-outline-secondary">Export JSON</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-7">
+      <div class="card p-3 mb-3">
+        <h5>Summary Results</h5>
+        <div id="summaryArea">No simulation run yet.</div>
+      </div>
+
+      <div class="card p-3 mb-3">
+        <h5>Daily Energy Breakdown (First Year Average)</h5>
+        <div class="chart-container"><canvas id="barChart"></canvas></div>
+      </div>
+
+      <div class="card p-3 mb-3">
+        <h5>Daily Energy Profile (First 365 Days)</h5>
+        <div class="chart-container"><canvas id="timeChart"></canvas></div>
+      </div>
+
+      <div class="card p-3 mb-3">
+        <h5>Cumulative Savings Over Time</h5>
+        <div class="chart-container"><canvas id="cumulativeChart"></canvas></div>
+      </div>
+
+      <div class="card p-3 mb-3">
+        <h5>Seasonal Workload Pattern</h5>
+        <div class="chart-container"><canvas id="seasonalChart"></canvas></div>
+      </div>
+
+      <div class="card p-3 mb-3">
+        <h5>Daily Cost Comparison</h5>
+        <div class="chart-container"><canvas id="costChart"></canvas></div>
+      </div>
+
+      <div class="card p-3 mb-3">
+        <h5>Electricity Price Trend</h5>
+        <div class="chart-container"><canvas id="priceChart"></canvas></div>
+      </div>
+
+      <div class="card p-3 mb-3">
+        <h5>First-year detail (table)</h5>
+        <div id="timeseriesTable" style="max-height:320px; overflow:auto; font-size:0.9rem;"></div>
+      </div>
+
+      <div class="card p-3 mb-3">
+        <h5>Field Explanations</h5>
+        <div id="explainGrid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function parseCSV(text){ return text.trim().split(/\r?\n/).map(l=>l.split(',').map(s=>s.trim())); }
+function kWh_from_J(j){ return j/3600000; }
+
+// Build explanation cards
+const explainItems = [
+  { title: 'P_PL_static (W)', body: 'PL fabric static draw when powered. Typical 5–15 W. Affects baseline cost.' },
+  { title: 'P_PL_fft_active (W)', body: 'Incremental PL power during FFT execution. Typical 4–12 W.' },
+  { title: 'P_PS_static (W)', body: 'PS (ARM A53/R5) idle power. Typical 1.5–4 W.' },
+  { title: 'P_PS_fft_active (W)', body: 'PS incremental FFT power. Typical 2–8 W.' },
+  { title: 'H_high / H_low (h/day)', body: 'Hours per day with high/low load. Must sum to 24. High load favors PL.' },
+  { title: 'E_sw (J per switch)', body: 'Energy cost of switching (reconfiguration). Typical 0.5–10 kJ.' },
+  { title: 'n_sw/day', body: 'Switch events per day. Example: day→night→day = 2.' },
+  { title: 'Electricity price (€/kWh)', body: 'Grid price. Upload CSV for realistic variation; else constant.' },
+  { title: 'Grid CO₂ intensity (kgCO₂/kWh)', body: 'Carbon footprint per kWh. Typical 0.2–0.7.' },
+  { title: 'Lifetime & Fleet size', body: 'Equipment life (years) and deployment scale for total impact.' }
+];
+
+const explainGrid = document.getElementById('explainGrid');
+if(explainGrid){
+  explainGrid.innerHTML = '';
+  const gridDiv = document.createElement('div');
+  gridDiv.style.display = 'grid';
+  gridDiv.style.gridTemplateColumns = '1fr 1fr';
+  gridDiv.style.gap = '12px';
+  for(const item of explainItems){
+    const card = document.createElement('div');
+    card.style.padding = '12px';
+    card.style.border = '1px solid #ddd';
+    card.style.borderRadius = '6px';
+    card.style.backgroundColor = '#f9fafb';
+    card.innerHTML = `<div style="font-weight:600; margin-bottom:4px;">${item.title}</div><div style="font-size:0.85rem; color:#666;">${item.body}</div>`;
+    gridDiv.appendChild(card);
+  }
+  explainGrid.appendChild(gridDiv);
+}
+
+function readInputs(){
+  return {
+    p_pl_static: parseFloat(document.getElementById('p_pl_static').value),
+    p_pl_fft: parseFloat(document.getElementById('p_pl_fft').value),
+    p_ps_static: parseFloat(document.getElementById('p_ps_static').value),
+    p_ps_fft: parseFloat(document.getElementById('p_ps_fft').value),
+    h_high: parseFloat(document.getElementById('h_high').value),
+    h_low: parseFloat(document.getElementById('h_low').value),
+    e_sw: parseFloat(document.getElementById('e_sw').value),
+    n_sw: parseFloat(document.getElementById('n_sw').value),
+    c_elec: parseFloat(document.getElementById('c_elec').value),
+    i_grid: parseFloat(document.getElementById('i_grid').value),
+    t_life: parseInt(document.getElementById('t_life').value),
+    fleet_size: parseInt(document.getElementById('fleet_size').value),
+    sim_years: parseInt(document.getElementById('sim_years').value)
+  };
+}
+
+function generateDefaultPriceSeries(days){
+  const arr=[];
+  for(let i=0;i<days;i++){
+    const seasonal = 1 + 0.12*Math.cos(2*Math.PI*(i/365)) - 0.07*Math.cos(4*Math.PI*(i/365));
+    const base = 0.25;
+    const noise = (Math.random()-0.5)*0.04;
+    const p = Math.max(0.05, base*seasonal + noise);
+    arr.push(p);
+  }
+  return arr;
+}
+
+function buildDailyProfile(scenario, seasonMultipliers){
+  const seasonLengths=[90,92,92,91];
+  const profile=[];
+  for(let s=0;s<4;s++){
+    for(let i=0;i<seasonLengths[s];i++){
+      let base=6;
+      if(scenario==='urban') base=8;
+      if(scenario==='tourist') base=7;
+      if(scenario==='industrial') base=12;
+      const mult = seasonMultipliers[s] || 1.0;
+      profile.push(Math.min(24, Math.max(0, base*mult)));
+    }
+  }
+  while(profile.length<365) profile.push(profile[profile.length-1]);
+  return profile;
+}
+
+async function runSimulation(){
+  const inputs = readInputs();
+  const fileInput = document.getElementById('price_csv');
+  let priceSeries = null;
+  if(fileInput.files && fileInput.files.length>0){
+    const text = await fileInput.files[0].text();
+    const rows = parseCSV(text);
+    priceSeries = rows.filter(r=>r.length>=2 && !isNaN(Date.parse(r[0])) && !isNaN(parseFloat(r[1]))).map(r=>parseFloat(r[1]));
+    if(priceSeries.length===0) priceSeries=null;
+  }
+  const totalDays = inputs.sim_years * 365;
+  const baseSeries = priceSeries || generateDefaultPriceSeries(Math.max(365, totalDays));
+  const extended=[];
+  for(let i=0;i<totalDays;i++) extended.push(baseSeries[i % baseSeries.length]);
+
+  const seasonMultipliers = document.getElementById('season_multipliers').value.split(',').map(s=>parseFloat(s.trim())||1.0);
+  const scenario = document.getElementById('scenario').value;
+  const daily365 = buildDailyProfile(scenario, seasonMultipliers);
+
+  const rows=[];
+  let baseline_total=0, dynamic_total=0, baseline_cost=0, dynamic_cost=0;
+  for(let day=0; day<totalDays; day++){
+    const h_high = daily365[day%365];
+    const h_low = 24 - h_high;
+    
+    // Baseline: PL always running 24h at full power (static + active averaged)
+    // Actually, baseline is "PL always on" so it includes both static and some baseline activity
+    const baseline_power_avg = (inputs.p_pl_static * 24 + inputs.p_pl_fft * h_high) / 24;
+    const baseline_kWh = baseline_power_avg * 24 / 1000;
+    
+    // Dynamic: PL runs h_high hours, PS runs h_low hours, plus switching cost
+    const compute_kWh = ((inputs.p_pl_static + inputs.p_pl_fft)*h_high + (inputs.p_ps_static + inputs.p_ps_fft)*h_low) / 1000;
+    const sw_kWh = kWh_from_J(inputs.e_sw * inputs.n_sw);
+    const dynamic_kWh = compute_kWh + sw_kWh;
+    const saved_kWh = Math.max(0, baseline_kWh - dynamic_kWh);
+    const price = extended[day] || inputs.c_elec;
+    rows.push({day, h_high, baseline_kWh, dynamic_kWh, saved_kWh, price, baseline_cost: baseline_kWh*price, dynamic_cost: dynamic_kWh*price});
+    baseline_total += baseline_kWh; 
+    dynamic_total += dynamic_kWh;
+    baseline_cost += baseline_kWh*price; 
+    dynamic_cost += dynamic_kWh*price;
+  }
+
+  const delta_kWh = baseline_total - dynamic_total;
+  const delta_cost = (baseline_cost - dynamic_cost);
+  const delta_CO2 = delta_kWh * inputs.i_grid;
+
+  const fleet_delta_kWh = delta_kWh * inputs.fleet_size;
+  const fleet_delta_cost = delta_cost * inputs.fleet_size;
+  const fleet_delta_co2 = delta_CO2 * inputs.fleet_size;
+
+  const results = {rows, baseline_total, dynamic_total, delta_kWh, delta_cost, delta_CO2, fleet_delta_kWh, fleet_delta_cost, fleet_delta_co2, inputs};
+  window.latestResults = results;
+  displayResults(results);
+  renderAllCharts(results);
+}
+
+function displayResults(res){
+  const s = document.getElementById('summaryArea');
+  s.innerHTML = `<div class="row">
+    <div class="col-md-6">
+      <p><strong>Simulation horizon:</strong> ${res.inputs.sim_years} years</p>
+      <p><strong>Per-unit lifetime energy saved:</strong> ${res.delta_kWh.toFixed(1)} kWh</p>
+      <p><strong>Per-unit lifetime OPEX saved:</strong> €${res.delta_cost.toFixed(2)}</p>
+      <p><strong>Per-unit lifetime CO₂ avoided:</strong> ${res.delta_CO2.toFixed(1)} kg</p>
+    </div>
+    <div class="col-md-6">
+      <p><strong>Fleet lifetime energy saved:</strong> ${res.fleet_delta_kWh.toLocaleString()} kWh</p>
+      <p><strong>Fleet lifetime OPEX saved:</strong> €${res.fleet_delta_cost.toLocaleString()}</p>
+      <p><strong>Fleet lifetime CO₂ avoided:</strong> ${res.fleet_delta_co2.toLocaleString()} kg</p>
+    </div>
+  </div>`;
+
+  const tableDiv = document.getElementById('timeseriesTable');
+  let html = '<table class="table table-sm"><thead><tr><th>Day</th><th>H_high</th><th>Baseline</th><th>Dynamic</th><th>Saved</th><th>Price</th></tr></thead><tbody>';
+  const maxRows = Math.min(365, res.rows.length);
+  for(let i=0;i<maxRows;i++){
+    const r = res.rows[i];
+    html += `<tr><td>${i+1}</td><td>${r.h_high.toFixed(1)}</td><td>${r.baseline_kWh.toFixed(3)}</td><td>${r.dynamic_kWh.toFixed(3)}</td><td>${r.saved_kWh.toFixed(3)}</td><td>${r.price.toFixed(3)}</td></tr>`;
+  }
+  html += '</tbody></table>';
+  tableDiv.innerHTML = html;
+}
+
+function renderAllCharts(res){
+  const firstYear = res.rows.slice(0,365);
+  
+  // Destroy all existing charts
+  if(window.allCharts){
+    Object.values(window.allCharts).forEach(c => { if(c && c.destroy) c.destroy(); });
+  }
+  window.allCharts = {};
+
+  // Chart 1: Bar chart
+  const avgBaseline = firstYear.reduce((a,b)=>a+b.baseline_kWh,0)/firstYear.length;
+  const avgDynamic = firstYear.reduce((a,b)=>a+b.dynamic_kWh,0)/firstYear.length;
+  const avgSaved = firstYear.reduce((a,b)=>a+b.saved_kWh,0)/firstYear.length;
+
+  window.allCharts.bar = new Chart(document.getElementById('barChart'), {
+    type:'bar',
+    data: { 
+      labels:['Baseline','Dynamic','Saved'], 
+      datasets:[{label:'kWh/day', data:[avgBaseline, avgDynamic, avgSaved], backgroundColor:['#60a5fa','#34d399','#facc15']}]
+    },
+    options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
+  });
+
+  // Chart 2: Line chart - daily profile
+  const lineLabels = [];
+  const linBaseline = [];
+  const linDynamic = [];
+  for(let i=0;i<firstYear.length;i+=5){
+    lineLabels.push(`D${i+1}`);
+    linBaseline.push(firstYear[i].baseline_kWh);
+    linDynamic.push(firstYear[i].dynamic_kWh);
+  }
+  window.allCharts.line = new Chart(document.getElementById('timeChart'), {
+    type:'line',
+    data:{labels:lineLabels, datasets:[
+      {label:'Baseline', data:linBaseline, borderColor:'#60a5fa', fill:false, tension:0.2},
+      {label:'Dynamic', data:linDynamic, borderColor:'#34d399', fill:false, tension:0.2}
+    ]},
+    options:{responsive:true, maintainAspectRatio:false, scales:{y:{beginAtZero:true}}}
+  });
+
+  // Chart 3: Cumulative
+  let cumSum = 0;
+  const cumLabels = [];
+  const cumData = [];
+  for(let i=0;i<res.rows.length;i+=20){
+    cumLabels.push(`D${i}`);
+    for(let j=Math.max(0,i-20);j<i;j++) cumSum += res.rows[j].saved_kWh;
+    cumData.push(cumSum);
+  }
+  window.allCharts.cum = new Chart(document.getElementById('cumulativeChart'), {
+    type:'line',
+    data:{labels:cumLabels, datasets:[{label:'Cumulative (kWh)', data:cumData, borderColor:'#8b5cf6', backgroundColor:'rgba(139,92,246,0.1)', fill:true, tension:0.3}]},
+    options:{responsive:true, maintainAspectRatio:false, scales:{y:{beginAtZero:true}}}
+  });
+
+  // Chart 4: Seasonal
+  const seasLabels = [];
+  const seasData = [];
+  for(let i=0;i<firstYear.length;i+=30){
+    seasLabels.push(`D${i}`);
+    seasData.push(firstYear[i].h_high);
+  }
+  window.allCharts.seas = new Chart(document.getElementById('seasonalChart'), {
+    type:'bar',
+    data:{labels:seasLabels, datasets:[{label:'H_high', data:seasData, backgroundColor:'#f59e0b'}]},
+    options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true, max:24}}}
+  });
+
+  // Chart 5: Cost
+  const costLabels = [];
+  const costBase = [];
+  const costDyn = [];
+  for(let i=0;i<firstYear.length;i+=10){
+    costLabels.push(`D${i+1}`);
+    costBase.push(firstYear[i].baseline_cost);
+    costDyn.push(firstYear[i].dynamic_cost);
+  }
+  window.allCharts.cost = new Chart(document.getElementById('costChart'), {
+    type:'line',
+    data:{labels:costLabels, datasets:[
+      {label:'Baseline', data:costBase, borderColor:'#ef4444', fill:false, tension:0.2},
+      {label:'Dynamic', data:costDyn, borderColor:'#10b981', fill:false, tension:0.2}
+    ]},
+    options:{responsive:true, maintainAspectRatio:false, scales:{y:{beginAtZero:true}}}
+  });
+
+  // Chart 6: Price
+  const priceLabels = [];
+  const priceData = [];
+  for(let i=0;i<firstYear.length;i+=10){
+    priceLabels.push(`D${i+1}`);
+    priceData.push(firstYear[i].price);
+  }
+  window.allCharts.price = new Chart(document.getElementById('priceChart'), {
+    type:'line',
+    data:{labels:priceLabels, datasets:[{label:'Price €/kWh', data:priceData, borderColor:'#6366f1', backgroundColor:'rgba(99,102,241,0.1)', fill:true, tension:0.2}]},
+    options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
+  });
+}
+
+function exportCSV(){
+  const res = window.latestResults;
+  if(!res){ alert('Run simulation first'); return; }
+  let csv = 'day,h_high,baseline_kWh,dynamic_kWh,saved_kWh,price,baseline_cost,dynamic_cost\n';
+  for(const r of res.rows) csv += `${r.day},${r.h_high.toFixed(2)},${r.baseline_kWh.toFixed(6)},${r.dynamic_kWh.toFixed(6)},${r.saved_kWh.toFixed(6)},${r.price.toFixed(6)},${r.baseline_cost.toFixed(6)},${r.dynamic_cost.toFixed(6)}\n`;
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `rfsoc_simulation_${Date.now()}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1000);
+}
+
+function exportJSON(){
+  const res = window.latestResults;
+  if(!res){ alert('Run simulation first'); return; }
+  const blob = new Blob([JSON.stringify(res, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `rfsoc_simulation_${Date.now()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1000);
+}
+
+document.getElementById('runSim').addEventListener('click', async () => {
+  document.getElementById('summaryArea').innerText = 'Running...';
+  try { await runSimulation(); } catch(e) { console.error(e); document.getElementById('summaryArea').innerText = 'Error: ' + e.message; }
+});
+document.getElementById('exportCSV').addEventListener('click', exportCSV);
+document.getElementById('exportJSON').addEventListener('click', exportJSON);
+</script>
+</body>
+</html>
